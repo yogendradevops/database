@@ -1,0 +1,245 @@
+podman network create --subnet=172.168.0.0/24 thomusnetwork
+
+
+podman run --name master -p 3310:3306  --network thomusnetwork --ip 172.168.0.10 -v /home/yogendra/thomus_cook/master/my.cnf:/etc/my.cnf -e MYSQL_ROOT_PASSWORD=redhat -itd mysql:latest
+
+ 
+
+
+
+bind-address = 192.168.122.235
+server-id = 2
+log-bin=/var/lib/mysql/slave-bin
+
+master=192.168.122.164
+slave=192.168.122.235
+
+CREATE USER 'keenable'@'192.168.122.235' IDENTIFIED BY 'Redhat@1234';
+GRANT REPLICATION SLAVE ON *.* TO 'keenable'@'192.168.122.235';
+show master status\G
+
+
+STOP SLAVE;
+RESET SLAVE;
+CHANGE MASTER TO MASTER_HOST ='192.168.122.164', MASTER_USER ='keenable', MASTER_PASSWORD ='Redhat@1234', MASTER_LOG_FILE = 'master-bin.000001', MASTER_LOG_POS = 395;
+start slave;
+show slave status\G
+
+
+CHANGE MASTER TO GET_MASTER_PUBLIC_KEY=1;
+Authentication plugin 'caching_sha2_password' reported error: Authentication requires secure connection.
+
+ProxySQL
+mysql -u admin -padmin -h 127.0.0.1 -P6032 --prompt='Admin> '
+
+SELECT * FROM mysql_servers;
+SELECT * from mysql_replication_hostgroups;
+SELECT * from mysql_query_rules;
+
+INSERT INTO mysql_servers(hostgroup_id,hostname,port) VALUES (1,'192.168.122.164',3306);
+INSERT INTO mysql_servers(hostgroup_id,hostname,port) VALUES (2,'192.168.122.235',3306);
+
+SELECT * FROM mysql_servers;
+
+ SELECT hostgroup_id,hostname,port,status FROM mysql_servers;
+ SELECT * FROM mysql_servers;
+ 
+ sudo mysql -u root -p
+ CREATE USER 'monitor'@'%' IDENTIFIED BY 'Redhat@1234';
+ GRANT SELECT ON sys.* TO  'monitor'@'%';
+ FLUSH PRIVILEGES;
+ 
+ UPDATE global_variables SET variable_value='monitor' WHERE variable_name='mysql-monitor_username';
+ UPDATE global_variables SET variable_value='Redhat@1234' WHERE variable_name='mysql-monitor_password';
+ 
+ UPDATE global_variables SET variable_value='2000' WHERE variable_name IN ('mysql-monitor_connect_interval','mysql-monitor_ping_interval','mysql-monitor_read_only_interval');
+ 
+ LOAD MYSQL VARIABLES TO RUNTIME;
+ LOAD MYSQL SERVERS TO RUNTIME;
+  
+ SAVE MYSQL VARIABLES TO DISK;
+ SAVE MYSQL SERVERS TO DISK;
+
+SELECT * FROM monitor.mysql_server_connect_log ORDER BY time_start_us DESC LIMIT 10;
+
+=====================================================================================================================================================================================================
+
+
+Configure ProxySQL users for MySQL cluster:-
+
+Login to MySQL database instance using mysql command and execute following commands to create a database user.
+
+mysql> Show databases;
+
+use testing
+mysql> create table test ( id integer auto_increment primary key, name varchar(20), contact_number integer);
+mysql> insert into test (name, contact_number) values ('yogendra', 9999);
+mysql> select * from test;
+mysql> CREATE USER 'testuser'@'%' IDENTIFIED BY 'Redhat@1234';
+mysql> GRANT ALL ON testing.* TO 'testuser'@'%';
+mysql> FLUSH PRIVILEGES;
+
+
+
+Login to ProxySQL admin panel and execute following commands to add the same MySQL database user in ProxySQL configuration.
+ INSERT INTO mysql_users(username,password,default_hostgroup) VALUES ('testuser','Redhat@1234',1);
+ LOAD MYSQL USERS TO RUNTIME;
+ SAVE MYSQL USERS TO DISK;
+ 
+ 
+ 
+ 
+ Now connect to MySQL database cluster via ProxySQL load balancer {6033 Port}:-
+mysql -u testuser -pRedhat@1234 -h 127.0.0.1 -P6033
+ select @@hostname;
+ show databases;
+select * from testing.test;
+
+========================================================================================================================================================================================================
+
+
+Now Again Connect To Admin Panel {6032} ➖CHeck The Query
+mysql -u admin -padmin -h 127.0.0.1 -P6032 --prompt='ProxySQL> '
+
+SELECT * FROM stats_mysql_query_digest GROUP BY hostgroup;
+SELECT hostgroup hg, sum_time, count_star, digest_text FROM stats_mysql_query_digest ORDER BY sum_time DESC;
+
+========================================================================================================================================================================================================
+Query Caching:-
+mysql -u admin -padmin -h 127.0.0.1 -P6032 --prompt='ProxySQL> '
+INSERT INTO mysql_query_rules (rule_id,active,match_pattern,destination_hostgroup,apply) VALUES (20,1,'^select' ,2,1);
+UPDATE mysql_query_rules set cache_ttl=5000 WHERE active=1 AND destination_hostgroup=2;
+LOAD MYSQL QUERY RULES TO RUNTIME;
+SELECT 1 FROM stats_mysql_query_digest_reset LIMIT 1;
+
+SELECT hostgroup hg, sum_time, count_star, digest_text FROM stats_mysql_query_digest ORDER BY sum_time DESC;
+ SELECT hostgroup hg, sum_time, count_star, digest_text FROM stats_mysql_query_digest ORDER BY sum_time DESC;
+ SELECT hostgroup hg, sum_time, count_star, digest_text FROM stats_mysql_query_digest ORDER BY sum_time DESC;
+ SELECT hostgroup hg, sum_time, count_star, digest_text FROM stats_mysql_query_digest ORDER BY sum_time DESC;
+ 
+ SELECT hostgroup hg, sum_time, count_star, digest_text FROM stats_mysql_query_digest ORDER BY sum_time DESC;
+ SELECT hostgroup hg, sum_time, count_star, digest_text FROM stats_mysql_query_digest ORDER BY sum_time DESC;
+
+=====================================================================================================================================
+======================================================================================================================================
+
+SELECT hostgroup_id,hostname,port,status FROM mysql_servers;
+	SELECT *  FROM mysql_servers;
+
+=========================
+Query the connection log table to verify the connectivity between ProxySQL and MySQL cluster nodes
+SELECT * FROM monitor.mysql_server_connect_log ORDER BY time_start_us DESC LIMIT 10;
+
+========================
+Now connect to MySQL database cluster via ProxySQL load balancer {6033 Port}:-
+mysql -u testuser -pRedhat@1234 -h 127.0.0.1 -P6033
+select @@hostname;
+ 
+ ======================= 
+ Now Again Connect To Admin Panel {6032} ➖CHeck The Query
+ mysql -u admin -padmin -h 127.0.0.1 -P6032 --prompt='ProxySQl> '
+ SELECT * FROM stats_mysql_query_digest GROUP BY hostgroup;
+SELECT hostgroup hg, sum_time, count_star, digest_text FROM stats_mysql_query_digest ORDER BY sum_time DESC;
+
+
+=====================================================================================================================================
+======================================================================================================================================
+INSERT INTO mysql_query_rules (rule_id,active,match_pattern,destination_hostgroup,apply) VALUES (20,1,'^select' ,2,1);
+UPDATE mysql_query_rules set cache_ttl=5000 WHERE active=1 AND destination_hostgroup=2;
+LOAD MYSQL QUERY RULES TO RUNTIME;
+SELECT 1 FROM stats_mysql_query_digest_reset LIMIT 1; -- we reset the counters
+SELECT hostgroup hg, sum_time, count_star, digest_text FROM stats_mysql_query_digest ORDER BY sum_time DESC;
+SELECT hostgroup hg, sum_time, count_star, digest_text FROM stats_mysql_query_digest ORDER BY sum_time DESC;
+
+
+
+=====================================================================================================================================
+======================================================================================================================================
+To check the ID of a specific rule in ProxySQL, you can use the following command:
+ProxySQl> SELECT rule_id FROM mysql_query_rules;
+
+
+
+
+
+To configure query caching in ProxySQL, you can follow these steps:
+Enable query caching in ProxySQL by setting mysql-query_cache_enabled to true:
+
+UPDATE global_variables SET variable_value='true' WHERE variable_name='mysql-query_cache_enabled';
+LOAD MYSQL VARIABLES TO RUNTIME;
+SAVE MYSQL VARIABLES TO DISK;
+
+Set the maximum amount of memory that can be used by the query cache with mysql-query_cache_size:
+UPDATE global_variables SET variable_value='10000000' WHERE variable_name='mysql-query_cache_size';
+LOAD MYSQL VARIABLES TO RUNTIME;
+SAVE MYSQL VARIABLES TO DISK;
+
+In this example, we set the maximum size to 10MB.
+
+Define the rules for caching queries with mysql_query_rules:
+INSERT INTO mysql_query_rules (rule_id, active, match_digest, cache_ttl, apply) VALUES (1, 1, '^SELECT.*FROM users$', 3600, 1);
+
+This rule will cache SELECT statements that match the regular expression ^SELECT.*FROM users$ for one hour (3600 seconds).
+
+Load the query rules to runtime and save them to disk:
+LOAD MYSQL QUERY RULES TO RUNTIME;
+SAVE MYSQL QUERY RULES TO DISK;
+
+
+
+
+=====+++++++++++++=+++++++++++++++++++++++========================================
+
+ProxySQL is a SQL-aware proxy that can perform read-write splitting for MySQL/MariaDB databases. It can automatically distribute read queries to read replicas and write queries to the primary server.
+
+When read-write splitting is enabled in ProxySQL, it intercepts all incoming SQL queries and routes them to the appropriate server based on the query type. If the query is a SELECT statement, it is directed to a read replica. If the query is an INSERT, UPDATE, or DELETE statement, it is directed to the primary server.
+
+
+=====+++++++++++++=+++++++++++++++++++++++========================================
+INSERT INTO mysql_query_rules (rule_id,active,match_pattern,destination_hostgroup,apply) VALUES (20,1,'^select' ,2,1);
+
+
+INSERT INTO mysql_query_rules (rule_id,active,match_pattern,destination_hostgroup,apply) VALUES (30,1,'^show' ,1,1);
+This rule will cache select statements that match the regular expression ^show
+ UPDATE mysql_query_rules set cache_ttl=5000 WHERE active=1 AND destination_hostgroup=1;
+  LOAD MYSQL QUERY RULES TO RUNTIME;
+  SAVE MYSQL QUERY RULES TO DISK;
+
+
+
+INSERT INTO mysql_query_rules(rule_id,active,match_digest,destination_hostgroup,apply) VALUES (3,1,'^SELECT.*FOR UPDATE',10,1);
+
+INSERT INTO mysql_query_rules(rule_id,active,match_digest,destination_hostgroup,apply) VALUES (2,1,'^SELECT',30,1);
+INSERT INTO mysql_query_rules(rule_id,active,match_digest,destination_hostgroup,apply) VALUES (3,1,'',40,1);
+
+
+
+SELECT rule_id FROM mysql_query_rules;                                 #### check rule id's
+	DELETE FROM mysql_query_rules WHERE rule_id = <rule_id>;               #### Delete rule Id's
+
+
+ProxySQL> DELETE FROM mysql_servers WHERE hostgroup_id=<hostgroup_id> AND hostname='<hostname>';     ### to delete the backend servers connected in proxysql
+
+++++++++++++++++++++++++++++++++++++++++++++++++++++
+mysql -u testuser -pRedhat@1234 -h 127.0.0.1 -P6033 -e "SELECT @@server_id"
+
+for i in {1..20}; do mysql -utestuser -pRedhat@1234 -h 127.0.0.1 -P 6033 -Bne "SELECT @@hostname" ;done |sort |uniq -c
+
+select rule_id, match_digest from mysql_query_rules;
+
+insert  into mysql_query_rules (rule_id, active, match_digest, destination_hostgroup, apply) values (10, 1, '^create', 1, 1);
+
+LOAD MYSQL QUERY RULES TO RUNTIME;
+SAVE MYSQL QUERY RULES TO DISK;
+
+CREATE TABLE bear ( customer_id INTEGER PRIMARY KEY, name TEXT, email TEXT, phone_number TEXT);
+INSERT INTO bear (customer_id, name, email, phone_number) VALUES (1, 'John Doe', 'johndoe@example.com', '555-1234');
+
+CREATE TABLE fruit ( customer_id INTEGER PRIMARY KEY, name TEXT, email TEXT, phone_number TEXT);
+INSERT INTO fruit (customer_id, name, email, phone_number) VALUES (1, 'John Doe', 'johndoe@example.com', '555-1234');
+
+ SELECT * FROM stats_mysql_query_digest GROUP BY hostgroup;
+SELECT hostgroup hg, sum_time, count_star, digest_text FROM stats_mysql_query_digest ORDER BY sum_time DESC;
+
+
+
